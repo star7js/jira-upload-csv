@@ -40,19 +40,20 @@ def main():
         issue_url = f"{BASE_URL}/browse/{main_issue['key']}"
         print(f"Issue {row['Summary']} created with Key: {main_issue['key']} and URL: {issue_url}")
 
-        # Create a subtask and link it to the main issue
-        subtask_data = {
-            'project': {'key': row['Project Key']},
-            'summary': row['Subtask Summary'],
-            'description': row['Subtask Description'],
-            'issuetype': {'name': 'Sub-task'},  # Assuming the issuetype for subtasks is named 'Sub-task'
-            'parent': {'id': main_issue['id']}
-        }
+        # Check if Subtask Summary and Subtask Description are present
+        if row['Subtask Summary'] and row['Subtask Description']:
+            # Create a subtask and link it to the main issue
+            subtask_data = {
+                'project': {'key': row['Project Key']},
+                'summary': row['Subtask Summary'],
+                'description': row['Subtask Description'],
+                'issuetype': {'name': 'Sub-task'},  # Assuming the issuetype for subtasks is named 'Sub-task'
+                'parent': {'id': main_issue['id']}
+            }
 
-        subtask = create_jira_subtask(subtask_data)
-        subtask_url = f"{BASE_URL}/browse/{subtask['key']}"
-        print(
-            f"Subtask {row['Subtask Summary']} created with Key: {subtask['key']} and URL: {subtask_url} linked to main issue {main_issue['key']}")
+            subtask = create_jira_subtask(subtask_data)
+            subtask_url = f"{BASE_URL}/browse/{subtask['key']}"
+            print(f"Subtask {row['Subtask Summary']} created with Key: {subtask['key']} and URL: {subtask_url} linked to main issue {main_issue['key']}")
 
 
 if __name__ == '__main__':
