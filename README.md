@@ -22,41 +22,41 @@ files.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/project_name.git
+   git clone https://github.com/star7js/jira-upload-csv.git
 
 2. Navigate to the project directory:
    cd project_name
 
 3. Install the required dependencies:
-pip install -r requirements.txt
+   pip install -r requirements.txt
 
 ## Usage
 
 1. Update the Jira authentication details in the respective script.
 2. Place your CSV files in the `data/` directory.
 3. Run the script:
-python src/script_name.py
+   python src/script_name.py
 
 ## Project Structure
+
 project_name/
 │
 ├── README.md            
 ├── requirements.txt     
 │
 ├── src/                 
-│   ├── script1.py       
-│   ├── script2.py       
-│   └── ...              
+│ ├── script1.py       
+│ ├── script2.py       
+│ └── ...              
 │
 ├── tests/               
-│   ├── test_script1.py  
-│   ├── test_script2.py  
-│   └── ...              
+│ ├── test_script1.py  
+│ ├── test_script2.py  
+│ └── ...              
 │
 └── data/                
-    ├── data1.csv
-    └── ...
-
+├── data1.csv
+└── ...
 
 For more details, please refer to the [project structure](#project-structure) section.
 

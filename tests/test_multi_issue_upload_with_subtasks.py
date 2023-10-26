@@ -1,6 +1,6 @@
 import unittest
-from unittest.mock import mock_open, patch, Mock
-import multi_issue_upload_with_subtasks  # Replace with the actual name of your script
+from unittest.mock import mock_open, patch
+from src import multi_issue_upload_with_subtasks
 
 
 class TestJiraScript(unittest.TestCase):
