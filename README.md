@@ -25,9 +25,11 @@ files.
    git clone https://github.com/star7js/jira-upload-csv.git
 
 2. Navigate to the project directory:
+   ```bash
    cd jira-upload-csv
 
 3. Install the required dependencies:
+   ``` bash
    pip install -r requirements.txt
 
 ## Usage
