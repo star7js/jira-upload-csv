@@ -33,15 +33,17 @@ files.
 
 ## Usage
 
-1. Update the Jira authentication details in the script.
+1. Update the Jira authentication details in the script.  
    Example:
    
-   ```BASE_URL = 'https://your-jira-instance-url'
-jira = Jira(
-    url=BASE_URL,
-    username='your-username',
-    password='your-api-token'
-)```
+   ```
+   BASE_URL = 'https://your-jira-instance-url'
+       jira = Jira(
+       url=BASE_URL,
+       username='your-username',
+       password='your-api-token'
+   )
+   ```
    
 3. Place your CSV files in the `data/` directory if desired, and refer to them in the script setup.
 4. Run the script. For example:
