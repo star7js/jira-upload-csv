@@ -46,7 +46,10 @@ files.
    ```
    
 3. Place your CSV files in the `data/` directory if desired, and refer to them in the script setup.
-4. Run the script. For example:
+   ```
+   rows = read_csv('path_to_your_csv_file.csv')
+   ```
+5. Run the script. For example:
    ```bash
    python src/multi_issue_upload_with_subtasks.py
    
