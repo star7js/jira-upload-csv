@@ -33,9 +33,15 @@ files.
 
 ## Usage
 
-1. Update the Jira authentication details in the respective script.
-2. Place your CSV files in the `data/` directory if desired, and refer to them in the script setup.
-3. Run the script. For example:
+1. Update the Jira authentication details in the script.  Example:
+   `BASE_URL = 'https://your-jira-instance-url'
+       jira = Jira(
+       url=BASE_URL,
+       username='your-username',
+       password='your-api-token'
+   )`
+3. Place your CSV files in the `data/` directory if desired, and refer to them in the script setup.
+4. Run the script. For example:
    ```bash
    python src/multi_issue_upload_with_subtasks.py
    
