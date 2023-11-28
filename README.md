@@ -34,10 +34,10 @@ files.
 ## Usage
 
 1. Update the Jira authentication details in the respective script.
-2. Place your CSV files in the `data/` directory.
-3. Run the script:
+2. Place your CSV files in the `data/` directory if desired, and refer to them in the script setup.
+3. Run the script. For example:
    ```bash
-   python src/script_name.py
+   python src/multi_issue_upload_with_subtasks.py
    
 ## Contributing
 
