@@ -58,8 +58,6 @@ project_name/
 ├── data1.csv
 └── ...
 
-For more details, please refer to the [project structure](#project-structure) section.
-
 ## Contributing
 
 Pull requests are welcome! For major changes, please open an issue first to discuss what you'd like to change.
