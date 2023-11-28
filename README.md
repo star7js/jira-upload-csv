@@ -8,7 +8,6 @@ files.
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -38,28 +37,7 @@ files.
 2. Place your CSV files in the `data/` directory.
 3. Run the script:
    python src/script_name.py
-
-## Project Structure
-
-project_name/
-│
-├── README.md            
-├── requirements.txt     
-│
-├── src/                 
-│ ├── script1.py       
-│ ├── script2.py       
-│ └── ...              
-│
-├── tests/               
-│ ├── test_script1.py  
-│ ├── test_script2.py  
-│ └── ...              
-│
-└── data/                
-├── data1.csv
-└── ...
-
+   
 ## Contributing
 
 Pull requests are welcome! For major changes, please open an issue first to discuss what you'd like to change.
