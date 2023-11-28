@@ -36,6 +36,7 @@ files.
 1. Update the Jira authentication details in the respective script.
 2. Place your CSV files in the `data/` directory.
 3. Run the script:
+   ```bash
    python src/script_name.py
    
 ## Contributing
