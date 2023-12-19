@@ -29,10 +29,9 @@ def main():
     main_issue = None
 
     for row in rows:
-        current_id = row['ID']
 
         # Check if we're dealing with a new main issue
-        if current_id != last_id:
+        if (current_id := row['ID']) != last_id:
             issue_data = {
                 'project': {'key': row['Project Key']},
                 'summary': row['Summary'],
