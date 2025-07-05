@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Dict
 from pydantic import ValidationError
 
-from models import CSVRow
+from src.models import CSVRow
 
 logger = logging.getLogger(__name__)
 

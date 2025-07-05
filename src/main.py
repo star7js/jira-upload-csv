@@ -6,9 +6,9 @@ import logging
 import sys
 from typing import Dict, Any, Optional
 
-from config import jira_config, app_config
-from jira_client import JiraClient
-from csv_processor import CSVProcessor
+from src.config import jira_config, app_config
+from src.jira_client import JiraClient
+from src.csv_processor import CSVProcessor
 
 
 def setup_logging(log_level: str = "INFO") -> None:

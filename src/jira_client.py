@@ -8,7 +8,7 @@ from typing import Dict, Any
 from atlassian import Jira
 from atlassian.errors import ApiError
 
-from config import jira_config, app_config
+from src.config import jira_config, app_config
 
 logger = logging.getLogger(__name__)
 
