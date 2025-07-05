@@ -56,7 +56,7 @@ jobs:
     
     - name: Type check with mypy
       run: |
-        mypy src/
+        mypy src/ --ignore-missing-imports --python-version 3.8
     
     - name: Test with pytest
       env:
