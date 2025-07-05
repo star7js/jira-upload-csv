@@ -65,6 +65,7 @@ Issues = "https://github.com/star7js/jira-upload-csv/issues"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*"]
+namespaces = false
 
 [tool.black]
 line-length = 88
