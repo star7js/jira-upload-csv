@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import Mock, patch
 import tempfile
 import os
+import sys
 from atlassian.errors import ApiError
 
 # Mock the atlassian import to avoid real network calls
@@ -16,6 +17,7 @@ with patch.dict(
         "atlassian.errors": Mock(),
     },
 ):
+    # Import modules after mocking
     from src.config import JiraConfig, AppConfig  # noqa
     from src.models import JiraIssueData, JiraSubtaskData, CSVRow
     from src.csv_processor import CSVProcessor
@@ -214,10 +216,9 @@ class TestJiraClient(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
-        self.jira_patcher = patch("src.jira_client.Jira")
-        self.mock_jira_class = self.jira_patcher.start()
-        self.mock_jira_instance = self.mock_jira_class.return_value
-
+        # Don't patch during setup to avoid PyO3 issues
+        # We'll patch in individual test methods instead
+        
         with patch.dict(
             os.environ,
             {
@@ -226,81 +227,93 @@ class TestJiraClient(unittest.TestCase):
                 "JIRA_API_TOKEN": "test-token",
             },
         ):
+            # Import JiraClient here to avoid PyO3 issues
+            from src.jira_client import JiraClient
             self.client = JiraClient()
-            self.client.jira = self.mock_jira_instance
-
-    def tearDown(self):
-        """Tear down test fixtures."""
-        self.jira_patcher.stop()
 
     def test_test_connection_success(self):
         """Test successful connection test."""
-        self.mock_jira_instance.server_info.return_value = {
-            "serverTitle": "Test Server"
-        }
-        self.assertTrue(self.client.test_connection())
+        with patch("src.jira_client.Jira") as mock_jira_class:
+            mock_jira_instance = mock_jira_class.return_value
+            mock_jira_instance.server_info.return_value = {
+                "serverTitle": "Test Server"
+            }
+            self.client.jira = mock_jira_instance
+            self.assertTrue(self.client.test_connection())
 
     def test_test_connection_failure(self):
         """Test failed connection test."""
-        self.mock_jira_instance.server_info.side_effect = Exception(
-            "Connection failed"
-        )
-        self.assertFalse(self.client.test_connection())
+        with patch("src.jira_client.Jira") as mock_jira_class:
+            mock_jira_instance = mock_jira_class.return_value
+            mock_jira_instance.server_info.side_effect = Exception(
+                "Connection failed"
+            )
+            self.client.jira = mock_jira_instance
+            self.assertFalse(self.client.test_connection())
 
     def test_create_issue_success(self):
         """Test successful issue creation."""
-        self.mock_jira_instance.issue_create.return_value = {
-            "key": "TEST-123",
-            "id": "12345",
-        }
+        with patch("src.jira_client.Jira") as mock_jira_class:
+            mock_jira_instance = mock_jira_class.return_value
+            mock_jira_instance.issue_create.return_value = {
+                "key": "TEST-123",
+                "id": "12345",
+            }
+            self.client.jira = mock_jira_instance
 
-        issue_data = JiraIssueData(
-            project_key="TEST",
-            summary="Test Issue",
-            description="Test Description",
-            issue_type="Task",
-        )
-        created_issue = self.client.create_issue(issue_data.model_dump())
+            issue_data = JiraIssueData(
+                project_key="TEST",
+                summary="Test Issue",
+                description="Test Description",
+                issue_type="Task",
+            )
+            created_issue = self.client.create_issue(issue_data.model_dump())
 
-        self.assertIsNotNone(created_issue)
-        self.assertEqual(created_issue["key"], "TEST-123")
-        self.mock_jira_instance.issue_create.assert_called_once()
+            self.assertIsNotNone(created_issue)
+            self.assertEqual(created_issue["key"], "TEST-123")
+            mock_jira_instance.issue_create.assert_called_once()
 
     def test_create_issue_failure(self):
         """Test failed issue creation."""
-        # Create a mock ApiError that inherits from Exception
-        mock_api_error = Exception("Server Error")
-        mock_api_error.status_code = 500
-        self.mock_jira_instance.issue_create.side_effect = mock_api_error
+        with patch("src.jira_client.Jira") as mock_jira_class:
+            mock_jira_instance = mock_jira_class.return_value
+            # Create a mock exception with status_code
+            mock_exception = Exception("Server Error")
+            mock_exception.status_code = 500
+            mock_jira_instance.issue_create.side_effect = mock_exception
+            self.client.jira = mock_jira_instance
 
-        issue_data = JiraIssueData(
-            project_key="TEST",
-            summary="Test Issue",
-            description="Test Description",
-            issue_type="Task",
-        )
-        with self.assertRaises(Exception):
-            self.client.create_issue(issue_data.model_dump())
+            issue_data = JiraIssueData(
+                project_key="TEST",
+                summary="Test Issue",
+                description="Test Description",
+                issue_type="Task",
+            )
+            with self.assertRaises(Exception):
+                self.client.create_issue(issue_data.model_dump())
 
     def test_create_subtask_success(self):
         """Test successful subtask creation."""
-        self.mock_jira_instance.issue_create.return_value = {
-            "key": "TEST-124",
-            "id": "12346",
-        }
+        with patch("src.jira_client.Jira") as mock_jira_class:
+            mock_jira_instance = mock_jira_class.return_value
+            mock_jira_instance.issue_create.return_value = {
+                "key": "TEST-124",
+                "id": "12346",
+            }
+            self.client.jira = mock_jira_instance
 
-        subtask_data = JiraSubtaskData(
-            project_key="TEST",
-            summary="Test Subtask",
-            description="Test Subtask Description",
-            issue_type="Sub-task",
-            parent_id="TEST-123",
-        )
-        created_subtask = self.client.create_subtask(subtask_data.model_dump())
+            subtask_data = JiraSubtaskData(
+                project_key="TEST",
+                summary="Test Subtask",
+                description="Test Subtask Description",
+                issue_type="Sub-task",
+                parent_id="TEST-123",
+            )
+            created_subtask = self.client.create_subtask(subtask_data.model_dump())
 
-        self.assertIsNotNone(created_subtask)
-        self.assertEqual(created_subtask["key"], "TEST-124")
-        self.mock_jira_instance.issue_create.assert_called_once()
+            self.assertIsNotNone(created_subtask)
+            self.assertEqual(created_subtask["key"], "TEST-124")
+            mock_jira_instance.issue_create.assert_called_once()
 
 
 if __name__ == "__main__":
