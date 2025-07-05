@@ -9,10 +9,10 @@ __version__ = "1.0.0"
 __author__ = "Josh Simnitt"
 __email__ = "josh.simnitt@example.com"
 
-from src.config import jira_config, app_config
-from src.models import JiraIssueData, JiraSubtaskData, CSVRow
-from src.jira_client import JiraClient
-from src.csv_processor import CSVProcessor
+from .config import jira_config, app_config
+from .models import JiraIssueData, JiraSubtaskData, CSVRow
+from .jira_client import JiraClient
+from .csv_processor import CSVProcessor
 
 __all__ = [
     "jira_config",

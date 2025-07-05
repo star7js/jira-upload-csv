@@ -16,7 +16,7 @@ with patch.dict(
         "atlassian.errors": Mock(),
     },
 ):
-    from src.config import JiraConfig, AppConfig
+    from src.config import JiraConfig, AppConfig  # noqa
     from src.models import JiraIssueData, JiraSubtaskData, CSVRow
     from src.csv_processor import CSVProcessor
     from src.jira_client import JiraClient
