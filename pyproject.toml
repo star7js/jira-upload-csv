@@ -115,8 +115,10 @@ module = [
     "atlassian.*",
     "click.*",
     "pydantic.*",
+    "pydantic._internal.*",
 ]
 ignore_missing_imports = true
+ignore_errors = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
