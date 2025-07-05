@@ -1,0 +1,4 @@
+ID,Project Key,Summary,Description,Issue Type,Subtask Summary,Subtask Description
+1,PROJ1,Main Issue 1,This is the first main issue,Task,Subtask 1.1,This is the first subtask for Main Issue 1
+1,PROJ1,,,,Subtask 1.2,This is the second subtask for Main Issue 1
+2,PROJ1,Main Issue 2,This is the second main issue,Task,Subtask 2.1,This is the first subtask for Main Issue 2

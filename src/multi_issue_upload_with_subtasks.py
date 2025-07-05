@@ -60,7 +60,8 @@ def main():
             subtask = create_jira_subtask(subtask_data)
             subtask_url = f"{BASE_URL}/browse/{subtask['key']}"
             print(
-                f"Subtask {row['Subtask Summary']} created with Key: {subtask['key']} and URL: {subtask_url} linked to main issue {main_issue['key']}")
+                f"Subtask {row['Subtask Summary']} created with Key: {subtask['key']} and URL: {subtask_url} linked "
+                f"to main issue {main_issue['key']}")
 
         last_id = current_id
 
