@@ -199,8 +199,7 @@ def main(csv_file_path: Optional[str] = None) -> bool:
 
         for issue_id, group_rows in issue_groups.items():
             logger.info(
-                f"Processing issue group {issue_id} "
-                f"with {len(group_rows)} rows"
+                f"Processing issue group {issue_id} " f"with {len(group_rows)} rows"
             )
 
             result = process_issue_group(
