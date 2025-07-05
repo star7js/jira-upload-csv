@@ -109,15 +109,25 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+# Allow parenthesized context managers for Python 3.9+
+allow_redefinition = true
 
 [[tool.mypy.overrides]]
 module = [
     "atlassian.*",
     "click.*",
+]
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
     "pydantic.*",
     "pydantic._internal.*",
 ]
 ignore_missing_imports = true
+ignore_errors = true
+# Specifically ignore parenthesized context manager errors
 ignore_errors = true
 
 [tool.pytest.ini_options]

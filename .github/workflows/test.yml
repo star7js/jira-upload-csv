@@ -56,7 +56,12 @@ jobs:
     
     - name: Type check with mypy
       run: |
-        mypy src/ --ignore-missing-imports --python-version 3.8
+        # Use different mypy settings based on Python version
+        if python -c "import sys; exit(0 if sys.version_info >= (3, 9) else 1)"; then
+          mypy src/ --ignore-missing-imports --python-version ${{ matrix.python-version }}
+        else
+          mypy src/ --ignore-missing-imports --python-version 3.8
+        fi
     
     - name: Test with pytest
       env:
