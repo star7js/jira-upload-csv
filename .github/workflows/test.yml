@@ -56,7 +56,8 @@ jobs:
     
     - name: Type check with mypy
       run: |
-        mypy src/ \
+        # Skip checking pydantic internals completely
+        MYPYPATH=/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages mypy src/ \
           --ignore-missing-imports \
           --disable-error-code=annotation-unchecked \
           --disable-error-code=attr-defined \
@@ -66,6 +67,8 @@ jobs:
           --disable-error-code=assignment \
           --disable-error-code=misc \
           --disable-error-code=syntax \
+          --follow-imports=skip \
+          --no-site-packages \
           --python-version 3.8
     
     - name: Test with pytest

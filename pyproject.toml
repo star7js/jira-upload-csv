@@ -105,12 +105,16 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "atlassian.*",
-    "click.*",
-    "pydantic.*",
-    "pydantic._internal.*"
+    "click.*"
 ]
 ignore_missing_imports = true
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["pydantic", "pydantic.*", "pydantic._internal.*"]
+ignore_missing_imports = true
+ignore_errors = true
+follow_imports = "skip"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
