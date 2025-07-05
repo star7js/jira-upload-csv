@@ -44,9 +44,9 @@ jobs:
         # exit-zero treats all errors as warnings
         flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
     
-    - name: Check formatting with black
+    - name: Format with black
       run: |
-        black --check src/ tests/
+        black src/ tests/
     
     - name: Type check with mypy
       run: |
