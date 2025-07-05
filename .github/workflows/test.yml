@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, "3.10", "3.11"]
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
 
     steps:
     - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
         # Install in development mode
         pip install -e .
         # Install dev dependencies
-        pip install pytest pytest-cov flake8 black mypy
+        pip install pytest pytest-cov flake8 black mypy types-requests
     
     - name: Lint with flake8
       run: |
@@ -50,20 +50,7 @@ jobs:
     
     - name: Type check with mypy
       run: |
-        # Skip checking pydantic internals completely
-        MYPYPATH=/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages mypy src/ \
-          --ignore-missing-imports \
-          --disable-error-code=annotation-unchecked \
-          --disable-error-code=attr-defined \
-          --disable-error-code=union-attr \
-          --disable-error-code=arg-type \
-          --disable-error-code=var-annotated \
-          --disable-error-code=assignment \
-          --disable-error-code=misc \
-          --disable-error-code=syntax \
-          --follow-imports=skip \
-          --no-site-packages \
-          --python-version 3.8
+        mypy src/
     
     - name: Test with pytest
       run: |

@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 def test_config():
     """Test configuration loading."""
     print("Testing configuration...")
-    from config import jira_config, app_config
+    from src.config import jira_config, app_config
     
     print(f"  Jira Base URL: {jira_config.base_url}")
     print(f"  Log Level: {app_config.log_level}")
@@ -23,7 +23,7 @@ def test_config():
 def test_models():
     """Test data models."""
     print("Testing data models...")
-    from models import JiraIssueData, CSVRow
+    from src.models import JiraIssueData, CSVRow
     
     # Test JiraIssueData
     issue_data = JiraIssueData(
@@ -67,7 +67,7 @@ def test_csv_processor():
     sys.modules['models'] = mock_models
     
     # Now import CSVProcessor
-    from csv_processor import CSVProcessor
+    from src.csv_processor import CSVProcessor
     
     # Test with the example CSV file
     csv_file = "data/main_and_subtasks_multiple.csv"
@@ -100,7 +100,7 @@ def test_jira_client_mock():
     sys.modules['atlassian'] = mock_atlassian
     sys.modules['atlassian.errors'] = mock_atlassian.errors
     
-    from jira_client import JiraClient
+    from src.jira_client import JiraClient
     
     # Set up environment for testing
     os.environ['JIRA_BASE_URL'] = 'https://test.atlassian.net'

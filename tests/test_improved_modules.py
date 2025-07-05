@@ -3,10 +3,10 @@ Comprehensive tests for improved Jira CSV upload modules.
 """
 
 import unittest
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, patch
 import tempfile
 import os
-from pathlib import Path
+from atlassian.errors import ApiError
 
 # Mock the atlassian import to avoid real network calls
 with patch.dict(
@@ -43,9 +43,10 @@ class TestJiraConfig(unittest.TestCase):
 
     def test_invalid_config(self):
         """Test configuration validation with missing values."""
-        config = JiraConfig()
-        with self.assertRaises(ValueError):
-            config.validate()
+        with patch.dict(os.environ, {}, clear=True):
+            config = JiraConfig()
+            with self.assertRaises(ValueError):
+                config.validate()
 
 
 class TestAppConfig(unittest.TestCase):
@@ -63,10 +64,11 @@ class TestAppConfig(unittest.TestCase):
 
     def test_config_defaults(self):
         """Test configuration defaults."""
-        config = AppConfig()
-        self.assertEqual(config.log_level, "INFO")
-        self.assertEqual(config.batch_size, 10)
-        self.assertEqual(config.retry_attempts, 3)
+        with patch.dict(os.environ, {}, clear=True):
+            config = AppConfig()
+            self.assertEqual(config.log_level, "INFO")
+            self.assertEqual(config.batch_size, 10)
+            self.assertEqual(config.retry_attempts, 3)
 
 
 class TestModels(unittest.TestCase):
@@ -156,10 +158,11 @@ class TestCSVProcessor(unittest.TestCase):
         self.csv_file = os.path.join(self.temp_dir, "test.csv")
 
         # Create a test CSV file with simpler structure
-        csv_content = """ID,Project Key,Summary,Description,Issue Type,Subtask Summary,Subtask Description
-1,TEST,Main Issue 1,Description 1,Task,,
-2,TEST,Main Issue 2,Description 2,Task,Subtask 2.1,Subtask Description 2.1
-"""
+        csv_content = (
+            "ID,Project Key,Summary,Description,Issue Type,Subtask Summary,Subtask Description\\n"
+            "1,TEST,Main Issue 1,Description 1,Task,,\\n"
+            "2,TEST,Main Issue 2,Description 2,Task,Subtask 2.1,Subtask Description 2.1\\n"
+        )
         with open(self.csv_file, "w") as f:
             f.write(csv_content)
 
@@ -195,8 +198,8 @@ class TestCSVProcessor(unittest.TestCase):
         self.assertEqual(len(groups), 2)
         self.assertIn("1", groups)
         self.assertIn("2", groups)
-        self.assertEqual(len(groups["1"]), 1)  # Main issue only
-        self.assertEqual(len(groups["2"]), 1)  # Main issue + 1 subtask
+        self.assertEqual(len(groups["1"]), 1)
+        self.assertEqual(len(groups["2"]), 1)
 
     def test_validate_issue_groups(self):
         """Test issue group validation."""
@@ -212,6 +215,10 @@ class TestJiraClient(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
+        self.jira_patcher = patch("src.jira_client.Jira")
+        self.mock_jira_class = self.jira_patcher.start()
+        self.mock_jira_instance = self.mock_jira_class.return_value
+
         with patch.dict(
             os.environ,
             {
@@ -221,44 +228,79 @@ class TestJiraClient(unittest.TestCase):
             },
         ):
             self.client = JiraClient()
+            self.client.jira = self.mock_jira_instance
 
-    @patch("src.jira_client.Jira")
-    def test_test_connection_success(self, mock_jira):
+    def tearDown(self):
+        """Tear down test fixtures."""
+        self.jira_patcher.stop()
+
+    def test_test_connection_success(self):
         """Test successful connection test."""
-        mock_jira_instance = Mock()
-        mock_jira_instance.server_info.return_value = {"serverTitle": "Test Server"}
-        mock_jira.return_value = mock_jira_instance
-
+        self.mock_jira_instance.server_info.return_value = {
+            "serverTitle": "Test Server"
+        }
         self.assertTrue(self.client.test_connection())
 
-    @patch("src.jira_client.Jira")
-    def test_test_connection_failure(self, mock_jira):
+    def test_test_connection_failure(self):
         """Test failed connection test."""
-        mock_jira_instance = Mock()
-        mock_jira_instance.server_info.side_effect = Exception("Connection failed")
-        mock_jira.return_value = mock_jira_instance
-
+        self.mock_jira_instance.server_info.side_effect = Exception(
+            "Connection failed"
+        )
         self.assertFalse(self.client.test_connection())
 
-    @patch("src.jira_client.Jira")
-    def test_create_issue_success(self, mock_jira):
+    def test_create_issue_success(self):
         """Test successful issue creation."""
-        mock_jira_instance = Mock()
-        mock_jira_instance.issue_create.return_value = {
+        self.mock_jira_instance.issue_create.return_value = {
             "key": "TEST-123",
             "id": "12345",
         }
-        mock_jira.return_value = mock_jira_instance
 
-        issue_data = {
-            "project": {"key": "TEST"},
-            "summary": "Test Issue",
-            "description": "Test Description",
-            "issuetype": {"name": "Task"},
+        issue_data = JiraIssueData(
+            project_key="TEST",
+            summary="Test Issue",
+            description="Test Description",
+            issue_type="Task",
+        )
+        created_issue = self.client.create_issue(issue_data.model_dump())
+
+        self.assertIsNotNone(created_issue)
+        self.assertEqual(created_issue["key"], "TEST-123")
+        self.mock_jira_instance.issue_create.assert_called_once()
+
+    def test_create_issue_failure(self):
+        """Test failed issue creation."""
+        self.mock_jira_instance.issue_create.side_effect = ApiError(
+            status_code=500, reason="Server Error"
+        )
+
+        issue_data = JiraIssueData(
+            project_key="TEST",
+            summary="Test Issue",
+            description="Test Description",
+            issue_type="Task",
+        )
+        with self.assertRaises(ApiError):
+            self.client.create_issue(issue_data.model_dump())
+
+    def test_create_subtask_success(self):
+        """Test successful subtask creation."""
+        self.mock_jira_instance.issue_create.return_value = {
+            "key": "TEST-124",
+            "id": "12346",
         }
 
-        result = self.client.create_issue(issue_data)
-        self.assertEqual(result["key"], "TEST-123")
+        subtask_data = JiraSubtaskData(
+            project_key="TEST",
+            summary="Test Subtask",
+            description="Test Subtask Description",
+            issue_type="Sub-task",
+            parent_id="TEST-123",
+        )
+        created_subtask = self.client.create_subtask(subtask_data.model_dump())
+
+        self.assertIsNotNone(created_subtask)
+        self.assertEqual(created_subtask["key"], "TEST-124")
+        self.mock_jira_instance.issue_create.assert_called_once()
 
 
 if __name__ == "__main__":
