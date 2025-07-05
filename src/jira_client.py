@@ -6,7 +6,6 @@ import logging
 import time
 from typing import Dict, Any, Optional
 from atlassian import Jira
-from atlassian.errors import ApiError
 
 from src.config import jira_config, app_config
 
@@ -53,23 +52,21 @@ class JiraClient:
                 )
                 return self.jira.issue_create(*args, **kwargs)
 
-            except ApiError as e:
+            except Exception as e:
                 last_exception = e
                 logger.warning(f"API error on attempt {attempt + 1}: {e}")
 
-                # Don't retry on authentication errors
-                if hasattr(e, 'status_code') and e.status_code in [401, 403]:
-                    logger.error(f"Authentication failed: {e}")
-                    raise
+                # Check if it's an API error with status code
+                if hasattr(e, 'status_code'):
+                    # Don't retry on authentication errors
+                    if e.status_code in [401, 403]:
+                        logger.error(f"Authentication failed: {e}")
+                        raise
 
-                # Don't retry on client errors (4xx) except rate limiting
-                if hasattr(e, 'status_code') and 400 <= e.status_code < 500 and e.status_code != 429:
-                    logger.error(f"Client error {e.status_code}: {e}")
-                    raise
-
-            except Exception as e:
-                last_exception = e
-                logger.warning(f"Unexpected error on attempt {attempt + 1}: {e}")
+                    # Don't retry on client errors (4xx) except rate limiting
+                    if 400 <= e.status_code < 500 and e.status_code != 429:
+                        logger.error(f"Client error {e.status_code}: {e}")
+                        raise
 
             # Wait before retrying (except on last attempt)
             if attempt < self.retry_attempts - 1:

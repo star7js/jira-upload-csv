@@ -158,11 +158,10 @@ class TestCSVProcessor(unittest.TestCase):
         self.csv_file = os.path.join(self.temp_dir, "test.csv")
 
         # Create a test CSV file with simpler structure
-        csv_content = (
-            "ID,Project Key,Summary,Description,Issue Type,Subtask Summary,Subtask Description\\n"
-            "1,TEST,Main Issue 1,Description 1,Task,,\\n"
-            "2,TEST,Main Issue 2,Description 2,Task,Subtask 2.1,Subtask Description 2.1\\n"
-        )
+        csv_content = """ID,Project Key,Summary,Description,Issue Type,Subtask Summary,Subtask Description
+1,TEST,Main Issue 1,Description 1,Task,,
+2,TEST,Main Issue 2,Description 2,Task,Subtask 2.1,Subtask Description 2.1
+"""
         with open(self.csv_file, "w") as f:
             f.write(csv_content)
 
@@ -269,9 +268,10 @@ class TestJiraClient(unittest.TestCase):
 
     def test_create_issue_failure(self):
         """Test failed issue creation."""
-        self.mock_jira_instance.issue_create.side_effect = ApiError(
-            status_code=500, reason="Server Error"
-        )
+        # Create a mock ApiError that inherits from Exception
+        mock_api_error = Exception("Server Error")
+        mock_api_error.status_code = 500
+        self.mock_jira_instance.issue_create.side_effect = mock_api_error
 
         issue_data = JiraIssueData(
             project_key="TEST",
@@ -279,7 +279,7 @@ class TestJiraClient(unittest.TestCase):
             description="Test Description",
             issue_type="Task",
         )
-        with self.assertRaises(ApiError):
+        with self.assertRaises(Exception):
             self.client.create_issue(issue_data.model_dump())
 
     def test_create_subtask_success(self):
