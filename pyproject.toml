@@ -116,18 +116,10 @@ ignore_missing_imports = true
 module = [
     "atlassian.*",
     "click.*",
-]
-ignore_missing_imports = true
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = [
     "pydantic.*",
-    "pydantic._internal.*",
+    "pydantic._internal.*"
 ]
 ignore_missing_imports = true
-ignore_errors = true
-# Specifically ignore parenthesized context manager errors
 ignore_errors = true
 
 [tool.pytest.ini_options]
