@@ -15,11 +15,11 @@ from jira_client import JiraClient
 from csv_processor import CSVProcessor
 
 __all__ = [
-    'jira_config',
-    'app_config', 
-    'JiraIssueData',
-    'JiraSubtaskData',
-    'CSVRow',
-    'JiraClient',
-    'CSVProcessor'
-] 
+    "jira_config",
+    "app_config",
+    "JiraIssueData",
+    "JiraSubtaskData",
+    "CSVRow",
+    "JiraClient",
+    "CSVProcessor",
+]
