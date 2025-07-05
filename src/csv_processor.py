@@ -148,7 +148,7 @@ class CSVProcessor:
         Returns:
             Dictionary mapping issue IDs to lists of rows
         """
-        issue_groups = {}
+        issue_groups: Dict[str, List[CSVRow]] = {}
 
         for row in rows:
             issue_id = row.id

@@ -4,7 +4,7 @@ Jira client module with error handling and retry logic.
 
 import logging
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from atlassian import Jira
 from atlassian.errors import ApiError
 
@@ -43,7 +43,7 @@ class JiraClient:
         Raises:
             Exception: If all retry attempts fail
         """
-        last_exception = None
+        last_exception: Optional[Exception] = None
 
         for attempt in range(self.retry_attempts):
             try:
@@ -58,12 +58,12 @@ class JiraClient:
                 logger.warning(f"API error on attempt {attempt + 1}: {e}")
 
                 # Don't retry on authentication errors
-                if e.status_code in [401, 403]:
+                if hasattr(e, 'status_code') and e.status_code in [401, 403]:
                     logger.error(f"Authentication failed: {e}")
                     raise
 
                 # Don't retry on client errors (4xx) except rate limiting
-                if 400 <= e.status_code < 500 and e.status_code != 429:
+                if hasattr(e, 'status_code') and 400 <= e.status_code < 500 and e.status_code != 429:
                     logger.error(f"Client error {e.status_code}: {e}")
                     raise
 
@@ -79,7 +79,9 @@ class JiraClient:
 
         # All retries failed
         logger.error(f"All {self.retry_attempts} attempts failed for {operation}")
-        raise last_exception
+        if last_exception is not None:
+            raise last_exception
+        raise RuntimeError(f"All {self.retry_attempts} attempts failed for {operation}")
 
     def create_issue(self, issue_data: Dict[str, Any]) -> Dict[str, Any]:
         """

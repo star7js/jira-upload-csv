@@ -82,7 +82,7 @@ def process_issue_group(
         Dictionary with processing results
     """
     logger = logging.getLogger(__name__)
-    results = {"issue_id": issue_id, "main_issue": None, "subtasks": [], "errors": []}
+    results: Dict[str, Any] = {"issue_id": issue_id, "main_issue": None, "subtasks": [], "errors": []}
 
     # Find the main issue row (the one with summary and description)
     main_issue_row = None

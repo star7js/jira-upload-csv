@@ -3,6 +3,7 @@ Configuration module for Jira CSV upload tool.
 """
 
 import os
+from typing import NoReturn
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -12,7 +13,7 @@ load_dotenv()
 class JiraConfig:
     """Configuration class for Jira connection settings."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_url: str = os.getenv(
             "JIRA_BASE_URL", "https://your-jira-instance-url"
         )
@@ -33,7 +34,7 @@ class JiraConfig:
 class AppConfig:
     """Application configuration."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.log_level: str = os.getenv("LOG_LEVEL", "INFO")
         self.default_csv_path: str = os.getenv(
             "DEFAULT_CSV_PATH", "data/main_and_subtasks_multiple.csv"
