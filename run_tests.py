@@ -6,6 +6,7 @@ Simple test runner to avoid PyO3 import issues.
 import subprocess
 import sys
 import os
+from security import safe_command
 
 def run_tests():
     """Run tests using subprocess to avoid PyO3 issues."""
@@ -13,7 +14,7 @@ def run_tests():
     
     # Run basic functionality test first
     print("\n1. Running basic functionality test...")
-    result1 = subprocess.run([sys.executable, "test_basic_functionality.py"], 
+    result1 = safe_command.run(subprocess.run, [sys.executable, "test_basic_functionality.py"], 
                            capture_output=True, text=True)
     
     if result1.returncode == 0:
@@ -25,7 +26,7 @@ def run_tests():
     
     # Run improved modules tests
     print("\n2. Running improved modules tests...")
-    result2 = subprocess.run([sys.executable, "-m", "pytest", 
+    result2 = safe_command.run(subprocess.run, [sys.executable, "-m", "pytest", 
                             "tests/test_improved_modules.py", "-v"], 
                            capture_output=True, text=True)
     
@@ -38,7 +39,7 @@ def run_tests():
     
     # Run multi-issue tests
     print("\n3. Running multi-issue tests...")
-    result3 = subprocess.run([sys.executable, "-m", "pytest", 
+    result3 = safe_command.run(subprocess.run, [sys.executable, "-m", "pytest", 
                             "tests/test_multi_issue_upload_with_subtasks.py", "-v"], 
                            capture_output=True, text=True)
     
