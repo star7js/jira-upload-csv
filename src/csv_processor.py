@@ -101,9 +101,11 @@ class CSVProcessor:
                         csv_row = CSVRow(
                             id=row["ID"],
                             project_key=row["Project Key"],
-                            summary=row["Summary"],
-                            description=row["Description"],
-                            issue_type=row["Issue Type"],
+                            summary=row["Summary"] if row["Summary"] else None,
+                            description=(
+                                row["Description"] if row["Description"] else None
+                            ),
+                            issue_type=row["Issue Type"] if row["Issue Type"] else None,
                             subtask_summary=(
                                 row["Subtask Summary"]
                                 if row["Subtask Summary"]

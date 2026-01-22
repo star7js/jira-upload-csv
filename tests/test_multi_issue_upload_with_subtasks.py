@@ -4,16 +4,23 @@ import sys
 import os
 
 # Add src to path without importing pydantic modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 # Mock pydantic before importing
-with patch.dict('sys.modules', {
-    'pydantic': Mock(),
-    'pydantic.BaseModel': Mock(),
-    'pydantic.Field': Mock(),
-    'pydantic.field_validator': Mock(),
-}):
-    from multi_issue_upload_with_subtasks import read_csv, create_jira_issue, create_jira_subtask
+with patch.dict(
+    "sys.modules",
+    {
+        "pydantic": Mock(),
+        "pydantic.BaseModel": Mock(),
+        "pydantic.Field": Mock(),
+        "pydantic.field_validator": Mock(),
+    },
+):
+    from multi_issue_upload_with_subtasks import (
+        read_csv,
+        create_jira_issue,
+        create_jira_subtask,
+    )
 
 
 class TestJiraScript(unittest.TestCase):
@@ -31,10 +38,10 @@ class TestJiraScript(unittest.TestCase):
         # ... more assertions based on your CSV structure
 
     # Test for create_jira_issue function
-    @patch('multi_issue_upload_with_subtasks.jira')
+    @patch("multi_issue_upload_with_subtasks.jira")
     def test_create_jira_issue(self, mock_jira):
         mock_jira.issue_create.return_value = {"key": "TEST-123", "id": "001"}
-        
+
         issue_data = {
             "project": {"key": "Test"},
             "summary": "Ticket 1",
@@ -47,10 +54,10 @@ class TestJiraScript(unittest.TestCase):
         # ... more assertions if needed
 
     # Test for create_jira_subtask function (similar to the one above)
-    @patch('multi_issue_upload_with_subtasks.jira')
+    @patch("multi_issue_upload_with_subtasks.jira")
     def test_create_jira_subtask(self, mock_jira):
         mock_jira.issue_create.return_value = {"key": "TEST-124", "id": "002"}
-        
+
         subtask_data = {
             "project": {"key": "Test"},
             "summary": "Subtask 1",

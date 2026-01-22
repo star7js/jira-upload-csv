@@ -3,7 +3,6 @@ Configuration module for Jira CSV upload tool.
 """
 
 import os
-from typing import NoReturn
 from dotenv import load_dotenv
 
 # Load environment variables from .env file

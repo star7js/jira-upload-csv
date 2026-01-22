@@ -4,11 +4,13 @@ Main module for Jira CSV upload tool.
 
 import logging
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
 
 from src.config import jira_config, app_config
 from src.jira_client import JiraClient
 from src.csv_processor import CSVProcessor
+from src.constants import SUBTASK_ISSUE_TYPE
+from src.models import CSVRow
 
 
 def setup_logging(log_level: str = "INFO") -> None:
@@ -18,17 +20,26 @@ def setup_logging(log_level: str = "INFO") -> None:
     Args:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR)
     """
+    handlers: List[Union[logging.StreamHandler, logging.FileHandler]] = [
+        logging.StreamHandler(sys.stdout)
+    ]
+
+    # Try to add file handler, but don't fail if we can't create the log file
+    try:
+        file_handler = logging.FileHandler("jira_upload.log")
+        handlers.append(file_handler)
+    except (PermissionError, OSError) as e:
+        # If we can't create the log file, just log to stdout
+        print(f"Warning: Could not create log file: {e}", file=sys.stderr)
+
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler("jira_upload.log"),
-        ],
+        handlers=handlers,
     )
 
 
-def create_issue_data(csv_row) -> Dict[str, Any]:
+def create_issue_data(csv_row: CSVRow) -> Dict[str, Any]:
     """
     Create Jira issue data from CSV row.
 
@@ -46,7 +57,7 @@ def create_issue_data(csv_row) -> Dict[str, Any]:
     }
 
 
-def create_subtask_data(csv_row, parent_id: str) -> Dict[str, Any]:
+def create_subtask_data(csv_row: CSVRow, parent_id: str) -> Dict[str, Any]:
     """
     Create Jira subtask data from CSV row.
 
@@ -61,13 +72,13 @@ def create_subtask_data(csv_row, parent_id: str) -> Dict[str, Any]:
         "project": {"key": csv_row.project_key},
         "summary": csv_row.subtask_summary,
         "description": csv_row.subtask_description,
-        "issuetype": {"name": "Sub-task"},
+        "issuetype": {"name": SUBTASK_ISSUE_TYPE},
         "parent": {"id": parent_id},
     }
 
 
 def process_issue_group(
-    issue_id: str, rows: list, jira_client: JiraClient, base_url: str
+    issue_id: str, rows: List[CSVRow], jira_client: JiraClient, base_url: str
 ) -> Dict[str, Any]:
     """
     Process a group of rows for a single issue.
@@ -82,7 +93,12 @@ def process_issue_group(
         Dictionary with processing results
     """
     logger = logging.getLogger(__name__)
-    results: Dict[str, Any] = {"issue_id": issue_id, "main_issue": None, "subtasks": [], "errors": []}
+    results: Dict[str, Any] = {
+        "issue_id": issue_id,
+        "main_issue": None,
+        "subtasks": [],
+        "errors": [],
+    }
 
     # Find the main issue row (the one with summary and description)
     main_issue_row = None
@@ -224,7 +240,7 @@ def main(csv_file_path: Optional[str] = None) -> bool:
         for result in all_results:
             if result["main_issue"]:
                 logger.info(
-                    f"Issue {result['main_issue']['key']}: {result['main_issue']['summary']}"
+                    f"Issue {result['main_issue']['key']}: {result['main_issue']['summary']}"  # noqa: E501
                 )
                 logger.info(f"  URL: {result['main_issue']['url']}")
 

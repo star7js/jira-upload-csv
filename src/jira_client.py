@@ -57,7 +57,7 @@ class JiraClient:
                 logger.warning(f"API error on attempt {attempt + 1}: {e}")
 
                 # Check if it's an API error with status code
-                if hasattr(e, 'status_code'):
+                if hasattr(e, "status_code"):
                     # Don't retry on authentication errors
                     if e.status_code in [401, 403]:
                         logger.error(f"Authentication failed: {e}")

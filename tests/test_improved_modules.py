@@ -6,8 +6,6 @@ import unittest
 from unittest.mock import Mock, patch
 import tempfile
 import os
-import sys
-from atlassian.errors import ApiError
 
 # Mock the atlassian import to avoid real network calls
 with patch.dict(
@@ -21,7 +19,6 @@ with patch.dict(
     from src.config import JiraConfig, AppConfig  # noqa
     from src.models import JiraIssueData, JiraSubtaskData, CSVRow
     from src.csv_processor import CSVProcessor
-    from src.jira_client import JiraClient
 
 
 class TestJiraConfig(unittest.TestCase):
@@ -160,10 +157,12 @@ class TestCSVProcessor(unittest.TestCase):
         self.csv_file = os.path.join(self.temp_dir, "test.csv")
 
         # Create a test CSV file with simpler structure
+        # fmt: off
         csv_content = """ID,Project Key,Summary,Description,Issue Type,Subtask Summary,Subtask Description
 1,TEST,Main Issue 1,Description 1,Task,,
 2,TEST,Main Issue 2,Description 2,Task,Subtask 2.1,Subtask Description 2.1
-"""
+"""  # noqa: E501
+        # fmt: on
         with open(self.csv_file, "w") as f:
             f.write(csv_content)
 
@@ -218,7 +217,7 @@ class TestJiraClient(unittest.TestCase):
         """Set up test fixtures."""
         # Don't patch during setup to avoid PyO3 issues
         # We'll patch in individual test methods instead
-        
+
         with patch.dict(
             os.environ,
             {
@@ -228,16 +227,15 @@ class TestJiraClient(unittest.TestCase):
             },
         ):
             # Import JiraClient here to avoid PyO3 issues
-            from src.jira_client import JiraClient
+            from src.jira_client import JiraClient  # noqa: F811
+
             self.client = JiraClient()
 
     def test_test_connection_success(self):
         """Test successful connection test."""
         with patch("src.jira_client.Jira") as mock_jira_class:
             mock_jira_instance = mock_jira_class.return_value
-            mock_jira_instance.server_info.return_value = {
-                "serverTitle": "Test Server"
-            }
+            mock_jira_instance.server_info.return_value = {"serverTitle": "Test Server"}
             self.client.jira = mock_jira_instance
             self.assertTrue(self.client.test_connection())
 
@@ -245,9 +243,7 @@ class TestJiraClient(unittest.TestCase):
         """Test failed connection test."""
         with patch("src.jira_client.Jira") as mock_jira_class:
             mock_jira_instance = mock_jira_class.return_value
-            mock_jira_instance.server_info.side_effect = Exception(
-                "Connection failed"
-            )
+            mock_jira_instance.server_info.side_effect = Exception("Connection failed")
             self.client.jira = mock_jira_instance
             self.assertFalse(self.client.test_connection())
 
