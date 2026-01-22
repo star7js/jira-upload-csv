@@ -12,7 +12,7 @@ from src.config import jira_config, app_config
 
 
 @click.group()
-@click.version_option(version="1.1.0")
+@click.version_option(version="1.2.0")
 def cli():
     """Jira CSV Upload Tool - Create Jira issues and subtasks from CSV data."""
     pass
