@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 import tempfile
 import os
+import importlib
 
 from src.main import main, process_issue_group
 from src.models import CSVRow
@@ -37,94 +38,118 @@ class TestEndToEndWorkflow(unittest.TestCase):
 
         shutil.rmtree(self.temp_dir)
 
-    @patch("src.config.app_config")
-    @patch("src.config.jira_config")
     @patch("src.jira_client.Jira")
-    def test_end_to_end_workflow_success(
-        self, mock_jira_class, mock_jira_config, mock_app_config
-    ):
+    def test_end_to_end_workflow_success(self, mock_jira_class):
         """Test complete workflow with successful API calls."""
-        # Setup config mocks
-        mock_jira_config.base_url = "https://test.atlassian.net"
-        mock_jira_config.username = "test@example.com"
-        mock_jira_config.password = "test-token"
-        mock_jira_config.validate.return_value = True
-        mock_app_config.log_level = "INFO"
-        mock_app_config.retry_attempts = 3
-        mock_app_config.retry_delay = 5
+        # Patch environment and reload config
+        with patch.dict(
+            os.environ,
+            {
+                "JIRA_BASE_URL": "https://test.atlassian.net",
+                "JIRA_USERNAME": "test@example.com",
+                "JIRA_API_TOKEN": "test-token",
+            },
+        ):
+            # Reload config module to pick up new environment variables
+            from src import config
 
-        # Setup mock Jira instance
-        mock_jira_instance = mock_jira_class.return_value
-        mock_jira_instance.server_info.return_value = {"serverTitle": "Test Server"}
+            importlib.reload(config)
+            # Re-import main to use reloaded config
+            from src import main as main_module
 
-        # Mock issue creation
-        issue_counter = [0]
+            importlib.reload(main_module)
 
-        def mock_create_issue(fields):
-            issue_counter[0] += 1
-            return {"key": f"TEST-{issue_counter[0]}", "id": str(issue_counter[0])}
+            # Setup mock Jira instance
+            mock_jira_instance = mock_jira_class.return_value
+            mock_jira_instance.server_info.return_value = {"serverTitle": "Test Server"}
 
-        mock_jira_instance.issue_create.side_effect = mock_create_issue
+            # Mock issue creation
+            issue_counter = [0]
 
-        # Run the main function
-        result = main(self.csv_file)
+            def mock_create_issue(fields):
+                issue_counter[0] += 1
+                return {
+                    "key": f"TEST-{issue_counter[0]}",
+                    "id": str(issue_counter[0]),
+                }
 
-        # Assertions
-        self.assertTrue(result)
-        # Should create 2 main issues and 2 subtasks = 4 total calls
-        self.assertEqual(mock_jira_instance.issue_create.call_count, 4)
+            mock_jira_instance.issue_create.side_effect = mock_create_issue
 
-    @patch("src.config.app_config")
-    @patch("src.config.jira_config")
+            # Run the main function
+            result = main_module.main(self.csv_file)
+
+            # Assertions
+            self.assertTrue(result)
+            # Should create 2 main issues and 2 subtasks = 4 total calls
+            self.assertEqual(mock_jira_instance.issue_create.call_count, 4)
+
     @patch("src.jira_client.Jira")
-    def test_end_to_end_workflow_with_api_error(
-        self, mock_jira_class, mock_jira_config, mock_app_config
-    ):
+    def test_end_to_end_workflow_with_api_error(self, mock_jira_class):
         """Test workflow handling of API errors."""
-        # Setup config mocks
-        mock_jira_config.base_url = "https://test.atlassian.net"
-        mock_jira_config.username = "test@example.com"
-        mock_jira_config.password = "test-token"
-        mock_jira_config.validate.return_value = True
-        mock_app_config.log_level = "INFO"
-        mock_app_config.retry_attempts = 3
-        mock_app_config.retry_delay = 5
+        # Patch environment and reload config
+        with patch.dict(
+            os.environ,
+            {
+                "JIRA_BASE_URL": "https://test.atlassian.net",
+                "JIRA_USERNAME": "test@example.com",
+                "JIRA_API_TOKEN": "test-token",
+                "RETRY_ATTEMPTS": "1",  # Minimize retries for faster test
+                "RETRY_DELAY": "0",  # No delay between retries
+            },
+        ):
+            # Reload config module to pick up new environment variables
+            from src import config
 
-        # Setup mock Jira instance
-        mock_jira_instance = mock_jira_class.return_value
-        mock_jira_instance.server_info.return_value = {"serverTitle": "Test Server"}
+            importlib.reload(config)
+            # Re-import main to use reloaded config
+            from src import main as main_module
 
-        # Mock issue creation with one failure
-        call_count = [0]
+            importlib.reload(main_module)
 
-        def mock_create_issue_with_error(fields):
-            call_count[0] += 1
-            if call_count[0] == 2:
-                # Fail on second call (subtask)
-                error = Exception("API Error")
-                error.status_code = 500
-                raise error
-            return {"key": f"TEST-{call_count[0]}", "id": str(call_count[0])}
+            # Setup mock Jira instance
+            mock_jira_instance = mock_jira_class.return_value
+            mock_jira_instance.server_info.return_value = {"serverTitle": "Test Server"}
 
-        mock_jira_instance.issue_create.side_effect = mock_create_issue_with_error
+            # Mock issue creation with persistent failure on subtask
+            # Track unique calls (not retries)
+            successful_issues = [0]
 
-        # Run the main function
-        result = main(self.csv_file)
+            def mock_create_issue_with_error(fields):
+                # First call succeeds (main issue)
+                if successful_issues[0] == 0:
+                    successful_issues[0] += 1
+                    return {"key": "TEST-1", "id": "1"}
+                # Second unique call fails permanently (subtask) - even on retries
+                elif successful_issues[0] == 1:
+                    error = Exception("API Error")
+                    error.status_code = 500
+                    raise error
+                # Subsequent calls succeed
+                else:
+                    successful_issues[0] += 1
+                    return {
+                        "key": f"TEST-{successful_issues[0]}",
+                        "id": str(successful_issues[0]),
+                    }
 
-        # Should still complete but with errors
-        self.assertFalse(result)  # Should return False due to errors
+            mock_jira_instance.issue_create.side_effect = mock_create_issue_with_error
 
-    @patch("src.config.app_config")
-    @patch("src.config.jira_config")
-    def test_invalid_csv_file(self, mock_jira_config, mock_app_config):
+            # Run the main function
+            result = main_module.main(self.csv_file)
+
+            # Should still complete but with errors
+            self.assertFalse(result)  # Should return False due to errors
+
+    @patch.dict(
+        os.environ,
+        {
+            "JIRA_BASE_URL": "https://test.atlassian.net",
+            "JIRA_USERNAME": "test@example.com",
+            "JIRA_API_TOKEN": "test-token",
+        },
+    )
+    def test_invalid_csv_file(self):
         """Test handling of invalid CSV file path."""
-        # Setup config mocks
-        mock_jira_config.base_url = "https://test.atlassian.net"
-        mock_jira_config.username = "test@example.com"
-        mock_jira_config.password = "test-token"
-        mock_jira_config.validate.return_value = True
-        mock_app_config.log_level = "INFO"
-
         result = main("/nonexistent/file.csv")
         self.assertFalse(result)
 
@@ -132,20 +157,17 @@ class TestEndToEndWorkflow(unittest.TestCase):
 class TestProcessIssueGroup(unittest.TestCase):
     """Test process_issue_group function."""
 
-    @patch("src.config.jira_config")
-    @patch("src.config.app_config")
+    @patch.dict(
+        os.environ,
+        {
+            "JIRA_BASE_URL": "https://test.atlassian.net",
+            "JIRA_USERNAME": "test@example.com",
+            "JIRA_API_TOKEN": "test-token",
+        },
+    )
     @patch("src.jira_client.Jira")
-    def test_process_issue_group_with_subtasks(
-        self, mock_jira_class, mock_app_config, mock_jira_config
-    ):
+    def test_process_issue_group_with_subtasks(self, mock_jira_class):
         """Test processing an issue group with subtasks."""
-        # Setup config mocks
-        mock_jira_config.base_url = "https://test.atlassian.net"
-        mock_jira_config.username = "test@example.com"
-        mock_jira_config.password = "test-token"
-        mock_app_config.retry_attempts = 3
-        mock_app_config.retry_delay = 5
-
         # Setup mock
         mock_jira_instance = mock_jira_class.return_value
         mock_jira_instance.issue_create.side_effect = [
@@ -179,20 +201,17 @@ class TestProcessIssueGroup(unittest.TestCase):
         self.assertEqual(result["main_issue"]["key"], "TEST-1")
         self.assertEqual(result["subtasks"][0]["key"], "TEST-2")
 
-    @patch("src.config.jira_config")
-    @patch("src.config.app_config")
+    @patch.dict(
+        os.environ,
+        {
+            "JIRA_BASE_URL": "https://test.atlassian.net",
+            "JIRA_USERNAME": "test@example.com",
+            "JIRA_API_TOKEN": "test-token",
+        },
+    )
     @patch("src.jira_client.Jira")
-    def test_process_issue_group_without_main_issue(
-        self, mock_jira_class, mock_app_config, mock_jira_config
-    ):
+    def test_process_issue_group_without_main_issue(self, mock_jira_class):
         """Test processing an issue group without main issue data."""
-        # Setup config mocks
-        mock_jira_config.base_url = "https://test.atlassian.net"
-        mock_jira_config.username = "test@example.com"
-        mock_jira_config.password = "test-token"
-        mock_app_config.retry_attempts = 3
-        mock_app_config.retry_delay = 5
-
         mock_jira_instance = mock_jira_class.return_value
 
         jira_client = JiraClient()

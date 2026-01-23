@@ -1,5 +1,7 @@
 # Jira CSV Upload Tool
 
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 A Python tool for automating the creation of Jira issues and subtasks from CSV data. Features robust error handling, validation, retry logic, and a command-line interface.
 
 ## Features
