@@ -1,5 +1,6 @@
 # Jira CSV Upload Tool
 
+[![Test](https://github.com/star7js/jira-upload-csv/actions/workflows/test.yml/badge.svg)](https://github.com/star7js/jira-upload-csv/actions/workflows/test.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 A Python tool for automating the creation of Jira issues and subtasks from CSV data. Features robust error handling, validation, retry logic, and a command-line interface.
