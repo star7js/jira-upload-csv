@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Dict
 from pydantic import ValidationError
 
-from src.models import CSVRow
+from jira_csv_upload.models import CSVRow
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class CSVProcessor:
 
         Raises:
             FileNotFoundError: If CSV file doesn't exist
-            ValueError: If CSV structure is invalid
+            ValueError: If CSV structure is invalid or any row fails validation
         """
         if not self.validate_file_exists():
             raise FileNotFoundError(f"CSV file not found: {self.file_path}")
@@ -97,25 +97,14 @@ class CSVProcessor:
                     reader, start=2
                 ):  # Start at 2 because row 1 is header
                     try:
-                        # Convert CSV row to CSVRow model
                         csv_row = CSVRow(
                             id=row["ID"],
                             project_key=row["Project Key"],
-                            summary=row["Summary"] if row["Summary"] else None,
-                            description=(
-                                row["Description"] if row["Description"] else None
-                            ),
-                            issue_type=row["Issue Type"] if row["Issue Type"] else None,
-                            subtask_summary=(
-                                row["Subtask Summary"]
-                                if row["Subtask Summary"]
-                                else None
-                            ),
-                            subtask_description=(
-                                row["Subtask Description"]
-                                if row["Subtask Description"]
-                                else None
-                            ),
+                            summary=row["Summary"] or None,
+                            description=row["Description"] or None,
+                            issue_type=row["Issue Type"] or None,
+                            subtask_summary=row["Subtask Summary"] or None,
+                            subtask_description=row["Subtask Description"] or None,
                         )
                         validated_rows.append(csv_row)
 
@@ -123,19 +112,18 @@ class CSVProcessor:
                         error_msg = f"Row {row_num}: Validation error - {e}"
                         logger.error(error_msg)
                         errors.append(error_msg)
-                    except Exception as e:
-                        error_msg = f"Row {row_num}: Unexpected error - {e}"
-                        logger.error(error_msg)
-                        errors.append(error_msg)
 
+        except (ValueError, ValidationError):
+            raise
         except Exception as e:
             logger.error(f"Error reading CSV file: {e}")
             raise
 
         if errors:
-            logger.warning(f"Found {len(errors)} validation errors in CSV")
-            for error in errors:
-                logger.warning(error)
+            raise ValueError(
+                f"CSV contains {len(errors)} invalid row(s); "
+                "fix them and re-run (see log for details)"
+            )
 
         logger.info(f"Successfully processed {len(validated_rows)} valid rows from CSV")
         return validated_rows
@@ -153,10 +141,7 @@ class CSVProcessor:
         issue_groups: Dict[str, List[CSVRow]] = {}
 
         for row in rows:
-            issue_id = row.id
-            if issue_id not in issue_groups:
-                issue_groups[issue_id] = []
-            issue_groups[issue_id].append(row)
+            issue_groups.setdefault(row.id, []).append(row)
 
         logger.info(f"Grouped {len(rows)} rows into {len(issue_groups)} issue groups")
         return issue_groups
@@ -174,11 +159,13 @@ class CSVProcessor:
         errors = []
 
         for issue_id, rows in issue_groups.items():
-            # Check that we have at least one row with main issue data
-            main_issue_rows = [row for row in rows if row.summary and row.description]
+            main_issue_rows = [row for row in rows if row.has_main_issue()]
 
             if len(main_issue_rows) == 0:
-                errors.append(f"Issue ID {issue_id}: No main issue data found")
+                errors.append(
+                    f"Issue ID {issue_id}: No main issue data found "
+                    "(Summary, Description, and Issue Type are all required)"
+                )
             elif len(main_issue_rows) > 1:
                 errors.append(f"Issue ID {issue_id}: Multiple main issue rows found")
 

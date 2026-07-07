@@ -6,35 +6,28 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A Python tool for automating the creation of Jira issues and subtasks from CSV data. Features robust error handling, validation, retry logic, and a command-line interface.
+A Python tool for automating the creation of Jira issues and subtasks from CSV data. Features error handling, validation, retry logic, and a command-line interface.
 
 ## Features
 
 - CSV data processing with automatic validation
 - Jira integration for creating issues and subtasks
+- Dry-run mode to preview what would be created
 - Retry logic with exponential backoff for API failures
 - Input validation using Pydantic models
+- Results file recording every created issue key
 - Configurable logging and error handling
 - Easy-to-use CLI with multiple commands
 
 ## Installation
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/star7js/jira-upload-csv.git
-   cd jira-upload-csv
-   ```
-
-2. Create a virtual environment:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+git clone https://github.com/star7js/jira-upload-csv.git
+cd jira-upload-csv
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -e .
+```
 
 ## Configuration
 
@@ -58,7 +51,7 @@ cp env.example .env
 |----------|-------------|---------|
 | `LOG_LEVEL` | Logging level | `INFO` |
 | `DEFAULT_CSV_PATH` | Default CSV file path | `data/main_and_subtasks_multiple.csv` |
-| `BATCH_SIZE` | Issues per batch | `10` |
+| `JIRA_SUBTASK_ISSUE_TYPE` | Subtask issue type name | `Sub-task` |
 | `RETRY_ATTEMPTS` | Retry attempts for failed requests | `3` |
 | `RETRY_DELAY` | Base delay between retries (seconds) | `5` |
 
@@ -70,25 +63,32 @@ cp env.example .env
 
 ```bash
 # Upload issues from CSV
-python cli.py upload --csv-file path/to/file.csv
+jira-csv-upload upload --csv-file path/to/file.csv
+
+# Preview what would be created without touching Jira
+jira-csv-upload upload --csv-file path/to/file.csv --dry-run
 
 # Test Jira connection
-python cli.py test
+jira-csv-upload test
 
 # Validate CSV format
-python cli.py validate --csv-file path/to/file.csv
+jira-csv-upload validate --csv-file path/to/file.csv
 
 # Generate CSV template
-python cli.py template
+jira-csv-upload template
 
 # Show current configuration
-python cli.py config
+jira-csv-upload config
 ```
+
+`python -m jira_csv_upload <command>` works too if you prefer not to use the entry point.
+
+After each upload, the created issue keys, URLs, and any errors are written to `upload_results.json`.
 
 ### Programmatic Usage
 
 ```python
-from src.main import main
+from jira_csv_upload.main import main
 
 success = main('path/to/file.csv')
 if success:
@@ -120,23 +120,10 @@ ID,Project Key,Summary,Description,Issue Type,Subtask Summary,Subtask Descriptio
 
 **Key points:**
 - Rows with the same `ID` are grouped together
-- Each group needs exactly one row with main issue data
+- Each group needs exactly one row with main issue data (`Summary`, `Description`, and `Issue Type`)
 - Additional rows in a group can contain subtask data
 - Empty subtask fields are ignored
-
-## Testing
-
-Run tests:
-```bash
-# All tests
-python -m pytest tests/
-
-# With coverage
-python -m pytest tests/ --cov=src --cov-report=html
-
-# Development dependencies
-pip install -r dev-requirements.txt
-```
+- If any row fails validation, the whole run fails — nothing is uploaded partially
 
 ## Troubleshooting
 
@@ -146,13 +133,16 @@ pip install -r dev-requirements.txt
 - Confirm Jira instance URL is correct
 
 **CSV Validation Errors**
-- Run `python cli.py validate --csv-file your-file.csv`
+- Run `jira-csv-upload validate --csv-file your-file.csv`
 - Ensure all required columns are present
 - Check each issue group has exactly one main issue row
 
 **Permission Errors**
 - Verify Jira user has create permissions in the target project
 - Confirm project key exists and is accessible
+
+**Subtask Creation Fails**
+- Your instance may use a different subtask type name; set `JIRA_SUBTASK_ISSUE_TYPE` in `.env`
 
 **Rate Limiting**
 - Tool includes automatic retry logic with exponential backoff
@@ -163,17 +153,23 @@ pip install -r dev-requirements.txt
 ## Development
 
 ```bash
-# Install dev dependencies
-pip install -r dev-requirements.txt
+# Install with dev dependencies
+pip install -e ".[dev]"
+
+# Run tests
+python -m pytest tests/
+
+# Run tests with coverage
+python -m pytest tests/ --cov=jira_csv_upload --cov-report=html
 
 # Run linting
-flake8 src/ tests/
+flake8 jira_csv_upload/ tests/
 
 # Run type checking
-mypy src/
+mypy jira_csv_upload/
 
 # Format code
-black src/ tests/
+black jira_csv_upload/ tests/
 ```
 
 Pull requests are welcome. Please include tests for new features.

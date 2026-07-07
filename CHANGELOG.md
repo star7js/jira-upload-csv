@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-07-06
+
+### Fixed
+- Fixed broken console script: the `jira-csv-upload` entry point now works after `pip install` (the CLI module was previously not packaged)
+- A row with a Summary and Description but no Issue Type is no longer treated as a main issue; it now fails validation instead of failing at upload time with a confusing API error
+- CSV rows that fail validation now fail the whole run instead of silently uploading the remaining rows and reporting success
+- Retry logic now retries the operation it was asked to perform instead of always calling `issue_create`
+- Version is now defined in one place (`jira_csv_upload.__version__`) instead of drifting across three files
+
+### Added
+- `upload --dry-run` flag: validate the CSV and show what would be created without calling Jira (works without Jira credentials)
+- Created issue keys and errors are written to `upload_results.json` after each upload
+- `JIRA_SUBTASK_ISSUE_TYPE` environment variable for instances where the subtask type is not named "Sub-task"
+- `template --force` flag; `template` no longer silently overwrites an existing `template.csv`
+- Clear error message when an integer environment variable (e.g. `RETRY_ATTEMPTS`) is not a number
+
+### Changed
+- **Breaking:** package restructured from `src/` + top-level `cli.py` to a proper `jira_csv_upload` package; run the CLI with `jira-csv-upload` (after install) or `python -m jira_csv_upload`
+- Dependencies reduced to direct ones only (`atlassian-python-api`, `python-dotenv`, `click`, `pydantic`); `requirements.txt` and `dev-requirements.txt` removed in favor of `pip install -e ".[dev]"`
+- mypy configuration tightened from effectively-disabled to a meaningful baseline
+- Release workflow migrated from the archived `actions/create-release` to `softprops/action-gh-release`
+
+### Removed
+- Unused `JiraIssueData`/`JiraSubtaskData` models and `CSVRow.to_issue_data`/`to_subtask_data` methods
+- Unused `BATCH_SIZE` configuration
+- `constants.py` (subtask issue type moved to configuration)
+
 ## [1.2.0] - 2024-12-22
 
 ### Security
@@ -83,6 +110,7 @@ Initial stable release - complete rewrite and modernization of the Jira CSV uplo
 - Python 3.8+
 - Cross-platform (Windows, macOS, Linux)
 
+[1.3.0]: https://github.com/star7js/jira-upload-csv/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/star7js/jira-upload-csv/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/star7js/jira-upload-csv/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/star7js/jira-upload-csv/releases/tag/v1.0.0

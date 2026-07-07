@@ -2,15 +2,18 @@
 Main module for Jira CSV upload tool.
 """
 
+import json
 import logging
 import sys
+from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
 
-from src.config import jira_config, app_config
-from src.jira_client import JiraClient
-from src.csv_processor import CSVProcessor
-from src.constants import SUBTASK_ISSUE_TYPE
-from src.models import CSVRow
+from jira_csv_upload.config import jira_config, app_config
+from jira_csv_upload.jira_client import JiraClient
+from jira_csv_upload.csv_processor import CSVProcessor
+from jira_csv_upload.models import CSVRow
+
+RESULTS_FILE = "upload_results.json"
 
 
 def setup_logging(log_level: str = "INFO") -> None:
@@ -72,7 +75,7 @@ def create_subtask_data(csv_row: CSVRow, parent_id: str) -> Dict[str, Any]:
         "project": {"key": csv_row.project_key},
         "summary": csv_row.subtask_summary,
         "description": csv_row.subtask_description,
-        "issuetype": {"name": SUBTASK_ISSUE_TYPE},
+        "issuetype": {"name": jira_config.subtask_issue_type},
         "parent": {"id": parent_id},
     }
 
@@ -100,12 +103,7 @@ def process_issue_group(
         "errors": [],
     }
 
-    # Find the main issue row (the one with summary and description)
-    main_issue_row = None
-    for row in rows:
-        if row.summary and row.description:
-            main_issue_row = row
-            break
+    main_issue_row = next((row for row in rows if row.has_main_issue()), None)
 
     if not main_issue_row:
         error_msg = f"No main issue data found for issue ID {issue_id}"
@@ -159,12 +157,42 @@ def process_issue_group(
     return results
 
 
-def main(csv_file_path: Optional[str] = None) -> bool:
+def preview_issue_groups(issue_groups: Dict[str, List[CSVRow]]) -> None:
+    """Log what would be created, without calling Jira."""
+    logger = logging.getLogger(__name__)
+
+    for issue_id, rows in issue_groups.items():
+        main_row = next(row for row in rows if row.has_main_issue())
+        subtask_rows = [row for row in rows if row.has_subtask()]
+
+        logger.info(
+            f"[dry-run] Would create issue in {main_row.project_key}: "
+            f"'{main_row.summary}' ({main_row.issue_type}) "
+            f"with {len(subtask_rows)} subtask(s)"
+        )
+        for row in subtask_rows:
+            logger.info(f"[dry-run]   - Subtask: '{row.subtask_summary}'")
+
+
+def write_results_file(all_results: List[Dict[str, Any]]) -> None:
+    """Write created issue keys and errors to a JSON results file."""
+    logger = logging.getLogger(__name__)
+    try:
+        results_path = Path(RESULTS_FILE)
+        results_path.write_text(json.dumps(all_results, indent=2), encoding="utf-8")
+        logger.info(f"Results written to {results_path.resolve()}")
+    except OSError as e:
+        logger.warning(f"Could not write results file: {e}")
+
+
+def main(csv_file_path: Optional[str] = None, dry_run: bool = False) -> bool:
     """
     Main function to process CSV and create Jira issues.
 
     Args:
         csv_file_path: Optional path to CSV file. If None, uses default from config.
+        dry_run: If True, validate and show what would be created without
+            calling Jira.
 
     Returns:
         True if successful, False otherwise
@@ -176,36 +204,38 @@ def main(csv_file_path: Optional[str] = None) -> bool:
         setup_logging(app_config.log_level)
         logger.info("Starting Jira CSV upload process")
 
-        # Validate configuration
-        jira_config.validate()
-        logger.info("Configuration validated successfully")
-
-        # Initialize Jira client
-        jira_client = JiraClient()
-
-        # Test Jira connection
-        if not jira_client.test_connection():
-            logger.error("Failed to connect to Jira. Please check your credentials.")
-            return False
-
-        # Initialize CSV processor
+        # Read and validate CSV
         csv_path = csv_file_path or app_config.default_csv_path
         csv_processor = CSVProcessor(csv_path)
 
-        # Read and validate CSV
         logger.info(f"Processing CSV file: {csv_path}")
         rows = csv_processor.read_and_validate_csv()
 
         if not rows:
-            logger.warning("No valid rows found in CSV file")
+            logger.warning("No rows found in CSV file")
             return True
 
-        # Group rows by issue ID
+        # Group rows by issue ID and validate the groups
         issue_groups = csv_processor.get_issue_groups(rows)
 
-        # Validate issue groups
         if not csv_processor.validate_issue_groups(issue_groups):
             logger.error("Issue group validation failed")
+            return False
+
+        if dry_run:
+            logger.info("Dry run: no issues will be created")
+            preview_issue_groups(issue_groups)
+            logger.info(f"Dry run complete: {len(issue_groups)} issue group(s) valid")
+            return True
+
+        # Validate configuration and connect to Jira
+        jira_config.validate()
+        logger.info("Configuration validated successfully")
+
+        jira_client = JiraClient()
+
+        if not jira_client.test_connection():
+            logger.error("Failed to connect to Jira. Please check your credentials.")
             return False
 
         # Process each issue group
@@ -215,11 +245,11 @@ def main(csv_file_path: Optional[str] = None) -> bool:
 
         for issue_id, group_rows in issue_groups.items():
             logger.info(
-                f"Processing issue group {issue_id} " f"with {len(group_rows)} rows"
+                f"Processing issue group {issue_id} with {len(group_rows)} rows"
             )
 
             result = process_issue_group(
-                issue_id, group_rows, jira_client, jira_config.base_url
+                issue_id, group_rows, jira_client, jira_config.base_url or ""
             )
 
             all_results.append(result)
@@ -254,6 +284,8 @@ def main(csv_file_path: Optional[str] = None) -> bool:
                     logger.warning(f"  Errors: {len(result['errors'])}")
                     for error in result["errors"]:
                         logger.warning(f"    - {error}")
+
+        write_results_file(all_results)
 
         logger.info("Jira CSV upload process completed")
         return error_count == 0

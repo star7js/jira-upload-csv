@@ -1,18 +1,19 @@
-#!/usr/bin/env python3
 """
 Command-line interface for Jira CSV upload tool.
 """
 
-import click
 import sys
 from pathlib import Path
 
-from src.main import main as run_main
-from src.config import jira_config, app_config
+import click
+
+from jira_csv_upload import __version__
+from jira_csv_upload.config import jira_config, app_config
+from jira_csv_upload.main import main as run_main
 
 
 @click.group()
-@click.version_option(version="1.2.0")
+@click.version_option(version=__version__)
 def cli():
     """Jira CSV Upload Tool - Create Jira issues and subtasks from CSV data."""
     pass
@@ -32,17 +33,24 @@ def cli():
     default="INFO",
     help="Logging level (default: INFO)",
 )
-def upload(csv_file, log_level):
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Validate and show what would be created without calling Jira.",
+)
+def upload(csv_file, log_level, dry_run):
     """Upload issues and subtasks from CSV to Jira."""
     # Set log level
     app_config.log_level = log_level
 
     # Run the main process
-    success = run_main(str(csv_file) if csv_file else None)
+    success = run_main(str(csv_file) if csv_file else None, dry_run=dry_run)
 
     if not success:
         click.echo("❌ Upload failed. Check the logs for details.", err=True)
         sys.exit(1)
+    elif dry_run:
+        click.echo("✅ Dry run completed successfully!")
     else:
         click.echo("✅ Upload completed successfully!")
 
@@ -58,7 +66,7 @@ def test():
         click.echo("✅ Configuration is valid")
 
         # Test connection
-        from src.jira_client import JiraClient
+        from jira_csv_upload.jira_client import JiraClient
 
         jira_client = JiraClient()
 
@@ -79,15 +87,15 @@ def config():
     click.echo("Current Configuration:")
     click.echo("=" * 30)
 
-    click.echo(f"Jira Base URL: {jira_config.base_url}")
-    click.echo(f"Jira Username: {jira_config.username}")
+    click.echo(f"Jira Base URL: {jira_config.base_url or 'Not set'}")
+    click.echo(f"Jira Username: {jira_config.username or 'Not set'}")
     token_display = (
         "*" * len(jira_config.password) if jira_config.password else "Not set"
     )
     click.echo(f"Jira API Token: {token_display}")
+    click.echo(f"Subtask Issue Type: {jira_config.subtask_issue_type}")
     click.echo(f"Log Level: {app_config.log_level}")
     click.echo(f"Default CSV Path: {app_config.default_csv_path}")
-    click.echo(f"Batch Size: {app_config.batch_size}")
     click.echo(f"Retry Attempts: {app_config.retry_attempts}")
     click.echo(f"Retry Delay: {app_config.retry_delay} seconds")
 
@@ -105,7 +113,7 @@ def validate(csv_file):
     click.echo(f"Validating CSV file: {csv_file}")
 
     try:
-        from src.csv_processor import CSVProcessor
+        from jira_csv_upload.csv_processor import CSVProcessor
 
         processor = CSVProcessor(str(csv_file))
 
@@ -129,7 +137,12 @@ def validate(csv_file):
 
 
 @cli.command()
-def template():
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Overwrite template.csv if it already exists.",
+)
+def template(force):
     """Generate a template CSV file."""
     # fmt: off
     template_content = """ID,Project Key,Summary,Description,Issue Type,Subtask Summary,Subtask Description
@@ -140,6 +153,12 @@ def template():
     # fmt: on
 
     template_file = Path("template.csv")
+    if template_file.exists() and not force:
+        click.echo(
+            f"❌ {template_file} already exists. Use --force to overwrite.", err=True
+        )
+        sys.exit(1)
+
     template_file.write_text(template_content)
     click.echo(f"✅ Template CSV file created: {template_file}")
     click.echo("Edit this file with your data and use the upload command.")

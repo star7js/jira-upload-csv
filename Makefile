@@ -4,28 +4,27 @@ help: ## Show this help message
 	@echo "Available commands:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-install: ## Install production dependencies
-	pip install -r requirements.txt
+install: ## Install the package
+	pip install -e .
 
-install-dev: ## Install development dependencies
-	pip install -r requirements.txt
-	pip install pytest pytest-cov black flake8 mypy pre-commit
+install-dev: ## Install the package with development dependencies
+	pip install -e ".[dev]"
 
 test: ## Run tests
 	python -m pytest tests/ -v
 
 test-cov: ## Run tests with coverage
-	python -m pytest tests/ --cov=src --cov-report=html --cov-report=term
+	python -m pytest tests/ --cov=jira_csv_upload --cov-report=html --cov-report=term
 
 lint: ## Run linting
-	flake8 src/ tests/
-	black --check src/ tests/
+	flake8 jira_csv_upload/ tests/
+	black --check jira_csv_upload/ tests/
 
 format: ## Format code
-	black src/ tests/
+	black jira_csv_upload/ tests/
 
 type-check: ## Run type checking
-	mypy src/
+	mypy jira_csv_upload/
 
 clean: ## Clean up build artifacts
 	rm -rf build/
@@ -47,18 +46,18 @@ setup-hooks: ## Setup pre-commit hooks
 	pre-commit install
 
 run-example: ## Run the tool with example data
-	python cli.py upload --csv-file data/main_and_subtasks_multiple.csv
+	python -m jira_csv_upload upload --csv-file data/main_and_subtasks_multiple.csv
 
 validate-example: ## Validate the example CSV file
-	python cli.py validate --csv-file data/main_and_subtasks_multiple.csv
+	python -m jira_csv_upload validate --csv-file data/main_and_subtasks_multiple.csv
 
 test-connection: ## Test Jira connection
-	python cli.py test
+	python -m jira_csv_upload test
 
 show-config: ## Show current configuration
-	python cli.py config
+	python -m jira_csv_upload config
 
 generate-template: ## Generate a template CSV file
-	python cli.py template
+	python -m jira_csv_upload template
 
-all: format lint type-check test ## Run all checks (format, lint, type-check, test) 
+all: format lint type-check test ## Run all checks (format, lint, type-check, test)

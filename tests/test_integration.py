@@ -2,15 +2,16 @@
 Integration tests for end-to-end workflow.
 """
 
+import json
 import unittest
 from unittest.mock import patch
 import tempfile
 import os
 import importlib
 
-from src.main import main, process_issue_group
-from src.models import CSVRow
-from src.jira_client import JiraClient
+from jira_csv_upload.main import main, process_issue_group
+from jira_csv_upload.models import CSVRow
+from jira_csv_upload.jira_client import JiraClient
 
 
 class TestEndToEndWorkflow(unittest.TestCase):
@@ -32,13 +33,18 @@ class TestEndToEndWorkflow(unittest.TestCase):
         with open(self.csv_file, "w") as f:
             f.write(csv_content)
 
+        # Run from the temp dir so log/results files don't land in the repo
+        self.original_cwd = os.getcwd()
+        os.chdir(self.temp_dir)
+
     def tearDown(self):
         """Clean up test fixtures."""
         import shutil
 
+        os.chdir(self.original_cwd)
         shutil.rmtree(self.temp_dir)
 
-    @patch("src.jira_client.Jira")
+    @patch("jira_csv_upload.jira_client.Jira")
     def test_end_to_end_workflow_success(self, mock_jira_class):
         """Test complete workflow with successful API calls."""
         # Patch environment and reload config
@@ -51,17 +57,19 @@ class TestEndToEndWorkflow(unittest.TestCase):
             },
         ):
             # Reload config module to pick up new environment variables
-            from src import config
+            from jira_csv_upload import config
 
             importlib.reload(config)
             # Re-import main to use reloaded config
-            from src import main as main_module
+            from jira_csv_upload import main as main_module
 
             importlib.reload(main_module)
 
             # Setup mock Jira instance
             mock_jira_instance = mock_jira_class.return_value
-            mock_jira_instance.server_info.return_value = {"serverTitle": "Test Server"}
+            mock_jira_instance.get_server_info.return_value = {
+                "serverTitle": "Test Server"
+            }
 
             # Mock issue creation
             issue_counter = [0]
@@ -83,7 +91,23 @@ class TestEndToEndWorkflow(unittest.TestCase):
             # Should create 2 main issues and 2 subtasks = 4 total calls
             self.assertEqual(mock_jira_instance.issue_create.call_count, 4)
 
-    @patch("src.jira_client.Jira")
+            # Results file records what was created
+            with open(main_module.RESULTS_FILE) as f:
+                results = json.load(f)
+            self.assertEqual(len(results), 2)
+            created_keys = {r["main_issue"]["key"] for r in results}
+            self.assertEqual(created_keys, {"TEST-1", "TEST-4"})
+
+    @patch("jira_csv_upload.jira_client.Jira")
+    def test_dry_run_creates_nothing(self, mock_jira_class):
+        """Dry run validates the CSV but never calls Jira."""
+        result = main(self.csv_file, dry_run=True)
+
+        self.assertTrue(result)
+        mock_jira_class.assert_not_called()
+        self.assertFalse(os.path.exists("upload_results.json"))
+
+    @patch("jira_csv_upload.jira_client.Jira")
     def test_end_to_end_workflow_with_api_error(self, mock_jira_class):
         """Test workflow handling of API errors."""
         # Patch environment and reload config
@@ -98,17 +122,19 @@ class TestEndToEndWorkflow(unittest.TestCase):
             },
         ):
             # Reload config module to pick up new environment variables
-            from src import config
+            from jira_csv_upload import config
 
             importlib.reload(config)
             # Re-import main to use reloaded config
-            from src import main as main_module
+            from jira_csv_upload import main as main_module
 
             importlib.reload(main_module)
 
             # Setup mock Jira instance
             mock_jira_instance = mock_jira_class.return_value
-            mock_jira_instance.server_info.return_value = {"serverTitle": "Test Server"}
+            mock_jira_instance.get_server_info.return_value = {
+                "serverTitle": "Test Server"
+            }
 
             # Mock issue creation with persistent failure on subtask
             # Track unique calls (not retries)
@@ -153,6 +179,30 @@ class TestEndToEndWorkflow(unittest.TestCase):
         result = main("/nonexistent/file.csv")
         self.assertFalse(result)
 
+    @patch.dict(
+        os.environ,
+        {
+            "JIRA_BASE_URL": "https://test.atlassian.net",
+            "JIRA_USERNAME": "test@example.com",
+            "JIRA_API_TOKEN": "test-token",
+        },
+    )
+    def test_csv_with_invalid_rows_fails_run(self):
+        """A CSV containing invalid rows fails the run instead of
+        silently uploading a subset."""
+        bad_csv = os.path.join(self.temp_dir, "bad.csv")
+        # fmt: off
+        csv_content = """ID,Project Key,Summary,Description,Issue Type,Subtask Summary,Subtask Description
+1,TEST,Main Issue 1,Description 1,Task,,
+,TEST,Bad Row,Description,Task,,
+"""  # noqa: E501
+        # fmt: on
+        with open(bad_csv, "w") as f:
+            f.write(csv_content)
+
+        result = main(bad_csv)
+        self.assertFalse(result)
+
 
 class TestProcessIssueGroup(unittest.TestCase):
     """Test process_issue_group function."""
@@ -165,7 +215,7 @@ class TestProcessIssueGroup(unittest.TestCase):
             "JIRA_API_TOKEN": "test-token",
         },
     )
-    @patch("src.jira_client.Jira")
+    @patch("jira_csv_upload.jira_client.Jira")
     def test_process_issue_group_with_subtasks(self, mock_jira_class):
         """Test processing an issue group with subtasks."""
         # Setup mock
@@ -209,7 +259,7 @@ class TestProcessIssueGroup(unittest.TestCase):
             "JIRA_API_TOKEN": "test-token",
         },
     )
-    @patch("src.jira_client.Jira")
+    @patch("jira_csv_upload.jira_client.Jira")
     def test_process_issue_group_without_main_issue(self, mock_jira_class):
         """Test processing an issue group without main issue data."""
         mock_jira_instance = mock_jira_class.return_value
@@ -238,6 +288,40 @@ class TestProcessIssueGroup(unittest.TestCase):
         self.assertIsNone(result["main_issue"])
         self.assertEqual(len(result["subtasks"]), 0)
         self.assertGreater(len(result["errors"]), 0)
+
+    @patch.dict(
+        os.environ,
+        {
+            "JIRA_BASE_URL": "https://test.atlassian.net",
+            "JIRA_USERNAME": "test@example.com",
+            "JIRA_API_TOKEN": "test-token",
+        },
+    )
+    @patch("jira_csv_upload.jira_client.Jira")
+    def test_process_issue_group_ignores_row_without_issue_type(self, mock_jira_class):
+        """A row missing an issue type is not treated as a main issue."""
+        mock_jira_instance = mock_jira_class.return_value
+
+        jira_client = JiraClient()
+        jira_client.jira = mock_jira_instance
+
+        rows = [
+            CSVRow(
+                id="1",
+                project_key="TEST",
+                summary="Main Issue",
+                description="Description",
+                issue_type=None,  # missing issue type
+            ),
+        ]
+
+        result = process_issue_group(
+            "1", rows, jira_client, "https://test.atlassian.net"
+        )
+
+        self.assertIsNone(result["main_issue"])
+        self.assertGreater(len(result["errors"]), 0)
+        mock_jira_instance.issue_create.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -4,10 +4,11 @@ Jira client module with error handling and retry logic.
 
 import logging
 import time
-from typing import Dict, Any, Optional
+from typing import Any, Callable, Dict, Optional
+
 from atlassian import Jira
 
-from src.config import jira_config, app_config
+from jira_csv_upload.config import jira_config, app_config
 
 logger = logging.getLogger(__name__)
 
@@ -18,23 +19,24 @@ class JiraClient:
     def __init__(self):
         """Initialize Jira client with configuration."""
         self.jira = Jira(
-            url=jira_config.base_url,
+            url=jira_config.base_url or "",
             username=jira_config.username,
             password=jira_config.password,
         )
         self.retry_attempts = app_config.retry_attempts
         self.retry_delay = app_config.retry_delay
 
-    def _make_request_with_retry(
-        self, operation: str, *args, **kwargs
+    def _with_retry(
+        self, operation: str, func: Callable[..., Any], *args: Any, **kwargs: Any
     ) -> Dict[str, Any]:
         """
-        Make a Jira API request with retry logic.
+        Call a Jira API method with retry logic.
 
         Args:
             operation: Name of the operation for logging
-            *args: Arguments to pass to the Jira API method
-            **kwargs: Keyword arguments to pass to the Jira API method
+            func: The Jira API method to call
+            *args: Arguments to pass to the method
+            **kwargs: Keyword arguments to pass to the method
 
         Returns:
             API response dictionary
@@ -50,22 +52,22 @@ class JiraClient:
                     f"Attempting {operation} "
                     f"(attempt {attempt + 1}/{self.retry_attempts})"
                 )
-                return self.jira.issue_create(*args, **kwargs)
+                return func(*args, **kwargs)
 
             except Exception as e:
                 last_exception = e
                 logger.warning(f"API error on attempt {attempt + 1}: {e}")
 
-                # Check if it's an API error with status code
-                if hasattr(e, "status_code"):
+                status_code = getattr(e, "status_code", None)
+                if status_code is not None:
                     # Don't retry on authentication errors
-                    if e.status_code in [401, 403]:
+                    if status_code in (401, 403):
                         logger.error(f"Authentication failed: {e}")
                         raise
 
                     # Don't retry on client errors (4xx) except rate limiting
-                    if 400 <= e.status_code < 500 and e.status_code != 429:
-                        logger.error(f"Client error {e.status_code}: {e}")
+                    if 400 <= status_code < 500 and status_code != 429:
+                        logger.error(f"Client error {status_code}: {e}")
                         raise
 
             # Wait before retrying (except on last attempt)
@@ -93,7 +95,9 @@ class JiraClient:
         logger.info(f"Creating issue: {issue_data.get('summary', 'Unknown')}")
 
         try:
-            response = self._make_request_with_retry("create_issue", fields=issue_data)
+            response = self._with_retry(
+                "create_issue", self.jira.issue_create, fields=issue_data
+            )
 
             logger.info(f"Successfully created issue: {response.get('key', 'Unknown')}")
             return response
@@ -115,8 +119,8 @@ class JiraClient:
         logger.info(f"Creating subtask: {subtask_data.get('summary', 'Unknown')}")
 
         try:
-            response = self._make_request_with_retry(
-                "create_subtask", fields=subtask_data
+            response = self._with_retry(
+                "create_subtask", self.jira.issue_create, fields=subtask_data
             )
 
             logger.info(
@@ -137,7 +141,7 @@ class JiraClient:
         """
         try:
             # Try to get server info as a connection test
-            server_info = self.jira.server_info()
+            server_info = self.jira.get_server_info() or {}
             logger.info(
                 f"Successfully connected to Jira server: "
                 f"{server_info.get('serverTitle', 'Unknown')}"
